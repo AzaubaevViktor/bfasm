@@ -20,6 +20,9 @@ class TokenArgType(Enum):
     String = 1
     Unknown = 2
 
+    def __repr__(self):
+        return self._name_
+
 
 class Token:
     def __init__(self,
@@ -58,12 +61,12 @@ class Token:
                     self.args.append((TokenArgType.Unknown, arg))
 
     def __repr__(self):
-        return "{file}:{line}:{pos} `{token}` `{args}`".format(
-            file=self.file,
-            line=self.line_n,
-            pos=self.pos,
+        return "{file}:{line}:{pos} `{token}` {args}".format(
+            file=self.file or "",
+            line=self.line_n or "",
+            pos=self.pos or "",
             token=self.token,
-            args=self.args
+            args=self.args or ""
         )
 
 
