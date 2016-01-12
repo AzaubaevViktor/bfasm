@@ -31,4 +31,4 @@ hey
 
     ast = AST(tokens)
     ast.generate()
-    print(ast.ast)
+    print(ast.root)

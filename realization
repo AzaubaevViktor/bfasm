@@ -1,0 +1,207 @@
+low_level_help
+==============
+macro __dec
+	; mem[mp] += 1
+	minus 1
+
+macro __inc
+	; mem[mp] -= 1
+	plus 1
+
+std_register
+============
+; библиотека для работы с регистрами
+import low_level_help
+
+macro _null r1:register
+	; mem[mp] = 0
+	__gomp r1
+	__cycle
+		__dec
+
+macro _add_diff_macro r1:register r2:register op:func
+	; r1 op= r2
+	; r2 = 0
+	__gomp r2
+	__cycle
+		__dec
+		__at r1 r2
+		op
+		__at r2 r1
+
+macro _add r1:register r2:register
+	; r1 += r2
+	; r2 = 0
+	_add_diff_macro r1 r2 __inc
+
+macro _diff r1:register r2:register
+	; r1 -= r2
+	; r2 = 0
+	_add_diff_macro r1 r2 __dec
+
+macro _adds_diffs_macro r1:register num:int op:func
+	; r1 op= num
+	__gomp r1
+	op num
+
+macro _adds r1:register num:int
+	; r1 += num
+	_adds_diffs_macro r1 num __plus
+
+macro _diffs r1:register num:int
+	; r1 -= num
+	_adds_diffs_macro r1 num __minus
+
+macro movs r1:register num:int
+	_adds r1 num
+
+macro mov r1:register r2:register
+	; r1 = r2
+	; r2 = 0
+	_null r1
+	_add r1 r2
+
+macro _multiadd2 r1:register r2:register r3:register
+	; r1 = r3
+	; r2 = r3
+	; r3 = 0
+	__gomp r3
+	__cycle
+		__dec
+		__at r2 r3
+		__inc
+		__at r1 r2
+		__inc
+		__at r3 r1
+
+macro smov r1:register r2:register
+	; r1 = r2
+	var save
+	_multiadd2 r2 save r1
+	mov r1 save
+
+macro inc r1:register
+	; r1 += 1
+	__gomp r1
+	__inc
+
+macro dec r1:register
+	; r1 -= 1
+	__gomp r1
+	__dec
+
+macro swapxy
+	; x = y
+	; y = x
+	var save
+	mov save X
+	mov X Y
+	mov Y save
+
+
+ifelse
+======
+; Условия
+
+macroblock if r1:register
+	var elseblock
+	movs elseblock 1
+	__gomp r1
+	__cycle
+		operations ; указывается автоматически
+		movs elseblock 0
+		__gomp n0
+	; добавляем в родительское пространство имён макроблок, который
+	; либо будет следующей командой,
+	; либо удаляется, если не найден.
+	macroblock @parent @next_or_never else 
+		__gomp elseblock
+		__cycle
+			operations
+			__gomp n0
+
+
+cycles
+======
+; Циклы
+
+macroblock while r1:register
+	; Добавляет в текущее пространство имён макроподстановку,
+	; которая будет жить только внутри блока
+	macro inner lastiter
+		movs r1 0
+
+	__gomp r1
+	__cycle
+		operations
+
+macroblock for r1:register
+	while r1
+		operations
+		dec r1
+
+compares
+========
+; Библиотека сравнений
+; ПРОДУМАТЬ!!!!!
+
+import `cycles`
+import `ifelse`
+
+macro _setXmY
+
+macro cmp
+	; Сравнивает X и Y
+	if X
+		; X != 0
+	else
+		; X == 0
+		if Y
+			; Y != 0
+		else
+			; Y == 0
+
+
+
+ariphmetic
+==========
+; Арифметические операции
+
+import `ifelse`
+import `cycles`
+import `compares`
+
+macro nullx
+	; X = 0
+	_null X
+
+macro nully
+	_null Y
+
+macro nulla
+	_null A
+
+macro null
+	_nullx
+	_nully
+
+macro add
+	nulla
+	mov A X
+	_add A Y
+
+macro mul
+	nulla
+	for X
+		_add A Y
+
+macro div
+	; Для понимания, продолжать ли
+	_null a
+	while X
+		for Y
+			dec X
+			cmps 0
+			if Z
+				null
+		_inc a

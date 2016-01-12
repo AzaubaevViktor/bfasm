@@ -26,12 +26,12 @@ class TokenArgType(Enum):
 
 class Token:
     def __init__(self,
-                 token, level, *args,
+                 cmd, level, *args,
                  file=None,
                  line_n=None,
                  pos=None,
                  raw=""):
-        self.token = token
+        self.cmd = cmd
         self.level = level
         self.args = []
         self._parse_args(args)
@@ -65,7 +65,7 @@ class Token:
             file=self.file or "",
             line=self.line_n or "",
             pos=self.pos or "",
-            token=self.token,
+            token=self.cmd,
             args=self.args or ""
         )
 

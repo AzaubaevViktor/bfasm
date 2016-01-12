@@ -1,0 +1,287 @@
+Общие положения
+===============
+Для арифметических операций:
+ARG1 < ARG2 < ARG3 < ... < ARGN
+Перед каждой командой SR1 и SR2 при их использовани надо очищать!
+Каждая команда ГАРАНТИРУЕТ, что указатель памяти будет в 0
+
+Что надо реализовать
+====================
+Перво-наперво -- команды из раздела "низкоуровневые команды"
+Потом -- макросы сразу (или нет, если сразу -- от многих ошибок спасёт) с проверкой типов
+
+Registers
+=========
+N0 -- вечный 0
+N1 -- вечный 1
+X, Y для бинарных операций
+SR1, SR2 -- для сохранения значений
+A для результатов арифметичкских действий
+L для загрузки в память
+S для загрузки из памяти
+
+Память
+======
+11 + (256*2)*2 + 256 = 1291 Bytes
+28709 bytes for mem
+a b M b M b M .. b M a b M b M ... ...
+
+(1 + 2 * 256) * p + (1 + 2 * b)
+
+55 PAGES (256 BYTES) + 246 BIAS + 1 byte
+
+So, 14326 bytes, ~14Kb
+
+Register
+MEMORY
+
+Флаги
+=====
+OF:		Флаг переполнения
+ZF: 	Флаг нуля
+SF:		Флаг знака
+NZF:	Флаг не нуля
+NSF: 	Флаг отрицания флага знака 
+
+Префиксы для команд
+===================
+S -- сохранение используемых значений с последующим восстановлением
+
+Низкоуровневые команды
+======================
+__SETMPS NUM // Подсказка для компилятора -- в каком месте оказывается указатель на MP в данный момент
+__GOMP R2 // MP += R2 - COMPILER_CUR_MP
+__GOMPS NUM // MP += NUM - COMPILER_CUR_MP
+__AT R2 R1 // MP += R2 - R1
+__ATS NUM // MP += NUM
+__PLUS NUM // mem[MP] += NUM
+__MINUS NUM // mem[MP] -= NUM
+__CYCLE // [ OPERATIONS ]
+	OPERATIONS
+__PRINT // print("%c", mem[MP])
+__READ // mem[MP] = readchar()
+VAR var_name // Выделяет регистр
+
+
+Работа непосредственно с регистрами
+===================================
+_NULL R1 // обнуление регистров
+MOVS R1 NUM1 // R1 = NUM1
+_ADD R1 R2 // R1 += R2; R2 = 0
+_DIFF R1 R2 // R1 -= R2; R2 = 0;
+_MULTIMOV2 R1 R2 R3 // R1 += R3; R2 += R3; R3 = 0;
+_INC R1
+_DEC R1
+MOV R1 R2 // перемещение без сохранения R2
+SMOV R1 R2 // перемещение с сохранением R2
+SWAP // swap x and y
+
+Ariphmetic
+==========
+NULLX
+NULLY
+NULL
+ADD // sum register X, Y -> A
+ADDC // sum with set overflow flag
+MUL
+DIV
+MOD
+DIFF
+MIN
+MAX
+UNMINUS // унарный минус
+INCX // X++
+DECX // X--
+INCY
+DECY
+
+Memory
+======
+LOADPB NUM1 NUM2 // load scalar from register L
+LOADP NUM1 // NUM1:X
+LOADB NUM1 // X:NUM1
+LOAD // load value L to X:Y
+SAVEPB NUM1 NUM2 // save value from mem NUM1:NUM2 to register S
+SAVEP NUM1 // NUM1:X
+SAVEB NUM2 // X:MUN2
+SAVE // X:Y -> S
+
+Сompare
+=======
+CMP // X and Y
+CMPS NUM1 // X ans NUM1
+
+ПРОДУМАТЬ!!!!!
+
+ZF SF NZF NSF Значит
+0  1  1   0   X > Y
+0  0  1   1   X < Y
+1  0  0   1   X == Y
+1  1  0   0   НЕДОПУСТИМО
+
+Stack
+=====
+PUSHS STACKNAME value
+PUSH STACKNAME // X
+POP STACKNAME // -> A
+POPNULL STACKNAME // pop
+SWAP STACKNAME // swap in stack
+SPOP STACKNAME // Выбрасывает с сохранением
+
+If
+==
+Надо над этим подумать. Как передавать внутрь макросов блоки кода?
+
+IFS
+IFNS
+IFNZ
+IFZ // команды по аналогии с ассемблером
+	OPERATIONS
+	...
+	...
+ELSE
+	OPERATIONS
+
+Cycles
+======
+FOR R1 // отсчитывает R1 шагов
+	OPERATIONS
+
+FORS NUM1 // NUM1 шагов
+	OPERATIONS
+
+WHILE R1 // Пока R1 не равно нулю
+
+LASTITERCYCLE R1 // Последняя итерация для цикла, по сути, макрос для _NULL R1
+
+Switch
+======
+SWITCH // X
+SWITCHS NUM
+	CASE // X==Y
+		OPERATIONS
+	CASE R1 // X == R1
+	CASES NUM1 // X == NUM1
+		OPERATIONS
+	DEFAULT
+		OPERATIONS
+
+Типы токенов
+============
+Types:
++ _TokenType (нельзя использовать напрямую)
++ int (туда же char)
++ macro (макрос)
++ register
++ stackPointer
+
+При подстановке проверяется соответствие типов
+
+Macros
+======
+MACRO macro
+	OP1
+	OP2
+	...
+
+По сути, те же макроподстановки
+MACRO func_name ARG1:type ARG2 ARG3 ARG3
+	OP1 ARGS
+	OP2
+	...
+	RETURN smth // A = smth
+
+Variables
+=========
+Тут уже этим занимается компилятор.
+BLOCK
+	VAR var_name ;выделяется регистр под переменную из пула регистров
+	; так как рекурсии нет, количество необходимых регистров известно
+	VAR var3 ;Ещё один регистр
+
+	MOV X var_name ;Работать можно также, как и с регистрами
+
+	BLOCK2
+		VAR var_name2 ;ещё один регистр выделили
+		MOV var_name2 var_name ;можно использовать и var_name
+		VAR var_name ;выделили уже другой регистр
+		UNVAR var_name ;освободили пул регистров
+		MOV var_name2 var_name;Теперь это переменная из родительского блока
+		; НЕЛЬЗЯ
+		UNVAR var_name ;Так нельзя -- переменная в пространстве имён предыдущего блока
+	UNVAR var_name ;А так можно -- переменная освободиться
+	OPERTAIONS
+	; var3 можно не освобождать -- освободиться само
+
+OPERATIONS
+;здесь var_name и var3 уже нет
+
+Stack
+=====
+STACK S STACK_SIZE ;Объявляем стек размера STACK_SIZE
+PUSH S R1 ;Работаем со стеком
+UNSTACK S ;Освобождаем стэк
+
+Import
+======
+IMPORT `filename`
+
+Compile
+=======
+Текстовые подстановки IMPORT-а
+Файл -> Токены -> AST -> раскрытие IMPORT -> Раскрытие MACROS -> генерация кода
+Нет рекурсии, так как функции подставляются
+
+STD_REGISTER
+============
+
+
+STD
+===========
+MACRO NULL
+	NULLX
+	NULLY
+
+MACRO _SAVE_0_1 OP WETS WTS
+	SMOV WETS WTS
+	OP
+	NULL
+	SMOV WTS WETS
+
+MACRO _SAVE_0_X OP
+	_SAVE_0_1 OP SR1 X
+
+MACRO _SAVE_0_Y OP
+	_SAVE_0_1 OP SR1 Y
+
+; ?????
+MACRO _SAVE_0_X_Y OP
+	_SAVE_1_Y _SAVE_0_X OP
+
+
+MACRO _SAVE_1_1 OP ARG WHERETOSAVE WHATTOSAVE 
+	SMOV WHERETOSAVE WHATTOSAVE
+	OP ARG
+	NULL
+	SMOV WHATTOSAVE WHERETOSAVE
+
+MACRO _SAVE2_1 OP ARG1 ARG2 WETS WTS
+	SMOV WETS WTS
+	OP ARG1 ARG2
+	NULL
+	SMOV WTS WETS
+
+MACRO DECX
+	_DIFFS X 1
+
+MACRO DIV
+	; Для понимания, продолжать ли
+	_NULL A
+	WHILEX
+		FORY
+			DECX
+			CMPS 0
+			IFZ
+				NULL
+		_INC A
+				
