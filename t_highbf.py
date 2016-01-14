@@ -24,18 +24,23 @@ __cycle
     __minus 3
 """
 
+line = "=============================="
+
 tokens = Tokenizer(prg.split("\n"))
 tokens.parse()
 print(tokens.tokens)
+print(line)
 
 ast = AST(tokens)
 ast.generate()
 print(ast.root)
+print(line)
 
 compiler = HighBF()
 
 code = compiler.compile(ast.root)
 print(code)
+print(line)
 
 bf_compiler = BFCompiler()
 bf_compiler += code
