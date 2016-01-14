@@ -31,3 +31,5 @@ class BFCompiler:
                 self.__iadd__(cmd)
         else:
             raise TypeError()
+
+        return self

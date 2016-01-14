@@ -1,4 +1,16 @@
 
+class CompilerExceptions(Exception):
+    module = 'Abstract'
+    error_line_format = 'Вы не должны увидеть эту ошибку. Вообще никогда.'
+    kwargs = {}
+
+    def __init__(self, token):
+        self.token = token
+
+    def __str__(self):
+        return generate_error_string(self.module, self.error_line_format, self.kwargs,
+                                     (self.token.file, self.token.line_n, self.token.pos), self.token.raw)
+
 
 def generate_error_string(module: str,
                           error_line_format: str,

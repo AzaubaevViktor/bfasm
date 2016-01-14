@@ -1,18 +1,30 @@
-import copy
+from bfast import AST, Node
+from tokenizer import TokenArgType
+from .commands import Main
+from for_error import CompilerExceptions
+from .types import *
 
-from ast import AST, Node
-from .commands import Main, NativeSetMPS
-from .types import Register, Macro
-from for_error import generate_error_string
+
+class CommandNotFound(CompilerExceptions):
+    module = 'HighBF'
+    error_line_format = 'Команда не найдена'
 
 
-class CommandNotFound(Exception):
-    def __init__(self, token):
-        self.token = token
+class VariableErrors(CompilerExceptions):
+    module = 'HighBF'
 
-    def __str__(self):
-        return generate_error_string('HighBF', 'Команда не найдена', {},
-                                     (self.token.file, self.token.line_n, self.token.pos), self.token.raw)
+
+class VariableAlreadyRegister(VariableErrors):
+    error_line_format = 'Переменная уже зарегистрированнав пространстве имён. Используйте' \
+                        ' `unvar` или измените имя.'
+
+
+class VariableNotRegistered(VariableErrors):
+    error_line_format = 'Переменная не объявлена в этом пространстве имён.'
+
+
+class VariableTypeError(VariableErrors):
+    error_line_format = 'Невозможно освободить не переменную.'
 
 
 class Namespace:
@@ -22,6 +34,33 @@ class Namespace:
 
     def get_child(self):
         return Namespace(self)
+
+    def get(self, key, default=None, search_everywhere=True):
+        if search_everywhere:
+            try:
+                return self[key]
+            except KeyError:
+                return default
+        else:
+            try:
+                return self.symbols[key]
+            except KeyError:
+                return default
+
+    def __contains__(self, item):
+        if self.parent is None:
+            return item in self.symbols
+        else:
+            if item in self.symbols:
+                return True
+            else:
+                return item in self.parent
+
+    def contain_this(self, item):
+        return item in self.symbols
+
+    def pop(self, key, default=None):
+        self.symbols.pop(key, default)
 
     def __setitem__(self, key, value):
         self.symbols[key] = value
@@ -40,33 +79,75 @@ class Namespace:
 
 
 class HighBF:
-    def __init__(self, parent_namespace=None):
+    def __init__(self):
         self.code = []
         self.registers = set()
         self.MP = 0
-        if parent_namespace:
-            self.namespace = Namespace(parent_namespace)
-        else:
-            self.namespace = Namespace()
-            self.namespace["__main"] = Macro(Main)
+        self.namespaces = []
+        namespace = Namespace()
+        namespace["__main"] = Macro(Main)
+        self.namespaces.append(namespace)
+
+    @property
+    def namespace(self):
+        return self.namespaces[-1]
 
     def register_name(self):
         pass
 
     def register_var(self, name):
-        pass
+        if name in self.namespace:
+            raise VariableAlreadyRegister(None)
+
+        i = 0
+        while i in self.registers:
+            i += 1
+
+        self.registers.add(i)
+
+        self.namespace[name] = Register(i, name)
 
     def unregister_var(self, name):
-        pass
+        item = self.namespace.get(name, search_everywhere=False)
 
-    def get_child(self):
-        return HighBF(self.namespace)
+        if item is None:
+            raise VariableNotRegistered(None)
+
+        if isinstance(item, Register):
+            self.registers.remove(item.addr)
+            self.namespace.pop(name)
+        else:
+            raise VariableTypeError(None)
+
+    def new_block(self):
+        namespace = Namespace(self.namespace)
+        self.namespaces.append(namespace)
+
+    def close_block(self):
+        del self.namespaces[-1]
+
+    def type_converter(self, arg):
+        arg_type, value = arg
+
+        if TokenArgType.Number == arg_type:
+            return Int(value)
+        else:
+            try:
+                return self.namespace[value]
+            except KeyError:
+                return UnknownName(value)
 
     def compile(self, node: Node):
         cmd = self.namespace[node.token.cmd]
 
         if isinstance(cmd, Macro):
             cmd = cmd.cmd(self)
-            return cmd.compile(node.token.args, node)
+            args = [self.type_converter(arg) for arg in node.token.args]
+            try:
+                # Если вдруг при обработке выкинется это сообщение
+                return cmd.compile(args, node)
+            except VariableErrors as e:
+                e.token = node.token
+                raise e
         else:
             raise CommandNotFound(node.token)
